@@ -1,0 +1,36 @@
+for supporting of image pull from Docker-hub
+
+issue -: not working for private images i have to check again yet paused
+
+Resolved -working for private images also by improving authentication method
+----------------------------------------------------------
+---------------------------------------------------------
+TOKEN=$(aws ecr get-login-password --region 'us-east-1')
+
+Token=$(echo "{\"username\":\"AWS\",\"password\":\"$TOKEN\",\"serveraddress\": \"https://118728153888.dkr.ecr.us-east-1.amazonaws.com/v2/\",\"email\":\"rohitpawar28112000@gmail.com\"}" | base64 -w 0)
+
+
+
+#Bash content used previously for verifiying things
+
+curl -X POST -d "" -H "X-Registry-Auth: $Token"  http://127.0.0.1:2375/images/create?fromImage=118728153888.dkr.ecr.us-east-1.amazonaws.com/jk
+
+
+#Working For the Private Own Registry
+---------------------------------------------------------------------------------------------
+
+
+
+#Token=$(echo "{\"username\":\"AWS\",\"password\":\"$TOKEN\",\"serveraddress\": \"http://localhost:5000/v2\",\"email\":\"rohitpawar28112000@gmail.com\"}" | base64 -w 0)
+
+
+
+#curl -X POST -d "" -H "X-Registry-Auth: $Token"  http://127.0.0.1:2375/images/create?fromImage=localhost:5000/moquil&repo=tmkpl
+---------------------------------------------------------------
+Map jsonAuth = [username: instanceImage.username , password: authToken , email: instanceImage.emailAddress , serveraddress: instanceImage.registryLocation ]
+
+----------------------------------------------------------------
+---------------------------------------------------------------
+proxy_headers_hash_bucket_size 128;   added in nginx conf file 
+serverTimezone="${database_time_zone ?: default_time_zone}" useSSL="false" allowPublicKeyRetrieval="true"
++                    serverTimezone="${database_time_zone ?: 'US/Pacific'}" useSSL="false" allowPublicKeyRetrieval="true"
