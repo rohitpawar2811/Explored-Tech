@@ -1,0 +1,122 @@
+1) Moqui-Multi-Instance with shared Hardware 
+2) Moqui-Multi-Instance with Distributed Docker 
+3)Moqui-Multi-Instanace with AWS
+
+1).Moqui-Multi-Intance Local Infrastructure setup
+
+
+Build Notes ➝ For Local-Setup of Moqui-Multi-Instance and has some Reference links 
+
+Concept
+Q ➝ First what is Multi-Instance and how we are doing initially?
+➝Its just simple having Multiple -Instance of application ,we build and then it serving to multiple tenant/customers.
+➝& also serving user data might be manage in separate-DB architecture but its disadvantage cost more (fixed amount of space is allocated to the user) ,so for that other user prefer clustered/shared architecture (Yet we use Separate DB).
+
+➝Main Component need : 1)Moqui - jetty deployment we are using
+ 2)Docker
+ 3)Automated Jwilder/Nginx-Proxy 
+4)Mysql 
+
+Docker ➝ here used for maintaining the instances Virtually in a separate containers and for doing so we have used Docker-API for Remote container creation by image(Moqui) , & also it stores the nginx-proxy in a container , which would help main instances to access the created instances and then you are good.
+
+Automated Jwilder/Nginx ➝ It is not normal proxy with extended feature of Nginx-Proxy ,here Internally It  is used for listening the container creation/start/dead event calls inside the docker and then it will generate the proxy-mapping inside nginx-proxy .In nginx all rules are described what to do when certificate available then which type of mapping it has to generate all decision's are taken internally .
+So that how it's automated and for further information I ping some references you can read inside Build documents.
+
+And Nginx-main benefit its light weight easy configurable mostly used 2 purpose either for proxy(by virtual-host thing) or load-balancing thing in a round robin fashion and other ways are avail.
+➝For https we can do self-certificate thing yet , but we can move to certificate provisioning after full poc.
+Advantage ➝ Less hustle for serving to new user , less deployment complication. 
+
+ 1)Moqui-Multi-Intance Local Infrastructure setup 
+	-Yet Using Jetty-Deployment and tested and working perfectly 
+	- Tested for https by using self-certificate thing done working fine ,provisioning through certificate                  not checked yet
+	-Tomcat container idea drooped because of having issue in case of https but jeety deployment also good and it has its own advantage like light-weight , easy-configurable ,fast .
+    
+Issue creating things :
+1) mysql - ssl needed and instances has remote access to the database.
+2).Privilege of user for per-instance is full access as of now
+in Build its solution is there.
+
+2)Moqui-Multi-Instance with Distributed Docker 
+2.1)Tested for Remote-Docker works good -done
+I have to give Just IP of the Server where Docker is running .
+2.2)Mysql for Remote-Docker not work expected -working ➝done
+0)if we are doing static mapping for mysql then it is taking default admin. not remote one so removed my mysql-configuration.
+1)timezone -edited
+2)Image-edit
+Things to remember before creating image -:
+IMP -> Moqui-Image must to be  not containing Local-Mapping of DB ,if contain then it will not be able to connect the DB with the given IP , because b/w envs and local declaration of DB precedence goes to local-declaration of DB 
+And also same for MAIN INSTANCE it should not contain the Local-Db mapping it is coming from envs and we want that because it might happen that db might be Remote.
+
+3) Provisioning -: Change the link thing because we know that it has to work with .hotwax.co 
+	                            domain.
+1). Just changed in code and add prefix .hotwax.co user just have to give host_name we automatically add domain_name.
+2). For ssl certificate we just have to run cmd and for applying certs on the instances we have to provide them to container nginx-proxy.
+-solution for this is bind-mount we bind a local-folder certs to  folder - nginx/certs inside the container ,when we create certificate outside in local-folder it will automatically reflects inside the nginx-container.
+
+4)For supporting of image pull from Docker-hub 
+issue -: not working for private images i have to check again yet paused.
+resolved -: authentication done working for private images also
+https://docs.docker.com/engine/api/v1.41/#tag/Image/operation/ImageCreate
+Called this API for my work.
+Not working for private-remote-Registry repository.
+
+5) Working on Private Registry of aws-ecr / azure
+For image storing and pulling and why we are doing this ,because globally fully available in each region ,and faster access if we are using ec2 instance of same platform(aws/azure).
+
+https://docs.docker.com/registry/spec/api/ ➝ registry v2 api whose support is given by all registry ,aws and azure also provide the support of it and also these platform has its own api for dealing with his owned-registry.
+https://docs.docker.com/engine/api/v1.41/ ➝ Remote api which uses the local-Remote docker support of host whose ip is given and throw which we will do operation like up/down/pause.
+
+For this we can http://172.20.20.195:2375/build?remote=https://raw.githubusercontent.com/Rohit-pawar902/HelpFull-Git-Command/main/Dockerfile4&t=rohit6
+
+-For this we have to maintain the docker file source url and give when needed
+-And the credential must be already configured we want 
+Aws configure 
+credential getting thing 
+docker login -u AWS -p  url 
+CMD
+sudo apt install awscli
+https://stackoverflow.com/questions/38268941/pull-docker-image-from-aws-ecr-using-remote-api/74093744#74093744
+aws configure
+aws ecr get-login-password --region us-east-1 
+aws ecr get-login --no-include-email --region us-east-1 (did this)
+docker login -u AWS -p <password/token> server-address 
+
+Map jsonAuth = [username: instanceImage.username , password: authToken , email: instanceImage.emailAddress , serveraddress: instanceImage.registryLocation ]
+Now the data➝ registryLocation of InstanceImage DB is going inside the serveraddress so give address when you are configuring the new  instanceImage. Mandatored
+Docker-container-private-registry : http://localhost:5000/v2/
+AWS-ECR-registry-server-address : https://118728153888.dkr.ecr.us-east-1.amazonaws.com/v2/
+ 
+And Must Remember to aws-configure on the cmd-prompt.
+AWS Access Key ID [None]: AKIARXJF73MQJ4OVSQMF
+AWS Secret Access Key [None]: 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
+Default region name [None]: us-east-1
+Default output format [None]: json
+Tag image when pushing to 
+118728153888.dkr.ecr.us-east-1.amazonaws.com/tk
+serveraddress/repo_name
+
+AZURE -REGISTRY -:
+rohitmkj.azurecr.io -server-address
+username -: rohitmkj
+password -: Eu4HAybGOktjF29Fu306bAdRw/Q4LoSw
+
+6) For moving on or deploying different images we want to have the feature that we can specify the Ports at UI level , because different image can want different port
+
+Actually we are not publishing port on container init , we publish or give access the image to the outer-world is from nginx-proxy
+ 
+nginx-proxy has rule if image has multiple ports exposed then it will proxy him to 80 port ,otherwise if one port is exposed then the same port is exposed.
+
+====================================================================================================================================================================================
+References :-
+-: Nginx-Proxy why https://www.linkedin.com/pulse/how-use-nginx-reverse-proxy-https-wss-self-signed-ramos-da-silva/
+-:Automated-Nginx-Proxy for Docker
+http://jasonwilder.com/blog/2014/03/25/automated-nginx-reverse-proxy-for-docker/
+
+Automated Jwilder/Nginx ➝ It is not normal proxy it is mixture of Docker-gen + Nginx-Proxy ,here Docker-Gen is used for listening the container creation/start/dead event calls inside the docker and then it will generate the proxy-mapping inside nginx-proxy based on the nginx.tmpl file .In nginx.tmpl all rules are described what to do when certificate avail then which type of mapping it has to generate all decision's are taken based on tmpl file.
+so that how it's automated and for further information i ping some references you can read inside Build documents.
+and Nginx-main benefit its light weight easy configurable mostly used 2 purpose either for proxy(by virtual-host thing) or load-balancing thing in a round robin fashion and other ways are avail.
+➝For https we can do self-certificate thing yet , but we can move to certificate provisioning after full poc.
+Advantage ➝ Less hustle for serving to new user , less deployment complication.
+
+
+
